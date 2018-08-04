@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import subprocess
 import sys
-print("If you would like more updates and more things adding please feel free to donate to this Bitcoin address")
+print("If you would like more updates and more things adding please feel free to donate to this Bitcoin address 14bnKzJWjYHYFndBuRbhth6aTbKGPjwmjg")
 
 network="eth0"
 
