@@ -5,10 +5,10 @@ import sys
 
 def handle_args(argv):
     """produce config based on passed arguments"""
-    config = { "network": "eth0" } #default config to return
+    config = { "network": "wlan0" } #default config to return
     for argument in argv:
-        if argument == "-w" or argument == "--wlan0": #backwards compatability
-            config["network"] = "wlan0"
+        if argument == "-e" or argument == "--eth0": #backwards compatability
+            config["network"] = "eth0"
         elif argument == "-i" or argument == "--interface":
             try:
                 config["network"] = next(argv)
