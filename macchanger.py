@@ -28,5 +28,5 @@ def main():
     subprocess.call("systemctl restart NetworkManager", shell=True)
 
 if __name__ == "__main__":
-    print("If you would like more updates and more things adding please feel free to donate to this Bitcoin address")
+    print("If you would like more updates and more things adding please feel free to donate to this Bitcoin address 14bnKzJWjYHYFndBuRbhth6aTbKGPjwmjg")
     main()
