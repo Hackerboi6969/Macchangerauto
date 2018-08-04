@@ -7,7 +7,7 @@ def handle_args(argv):
     """produce config based on passed arguments"""
     config = { "network": "wlan0" } #default config to return
     for argument in argv:
-        if argument == "-e" or argument == "--eth0": #backwards compatability
+        if argument == "-e" or argument == "--eth0": #easy toggle for eth0
             config["network"] = "eth0"
         elif argument == "-i" or argument == "--interface":
             try:
