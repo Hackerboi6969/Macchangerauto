@@ -1,6 +1,0 @@
-Useage:
-If there is the "Could not set network down" then check if your connected to you WiFi or use the toggle "./macchanger -e or --eth0"
-
-If no interface was auto selected then use "-i eth0" or "-i wlan0" 
-
-More things will be added at a later date but we always could use donations so plseas if you like the program and would like to show your appreciantion then send Bitcoin to this address 14bnKzJWjYHYFndBuRbhth6aTbKGPjwmjg
