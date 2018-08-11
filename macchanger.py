@@ -45,37 +45,28 @@ class Config:
     """Configurable options for the running
     of the script set/got from here"""
 
-    def __init__(self, iface, verbose):
-        self.iface = iface
-        self.verbose = verbose
+    def __init__(self, args):
+        self.iface = "wlan0"
+        self.verbose = False
+        next(args) # go past argument 0 (how script was called)
 
-def init_config(args):
-    """Return instance of Config() after
-    parsing script arguments for changed options"""
-
-    iface = "wlan0"
-    verbose = False
-    next(args) # go past arg 0 (how script was called)
-
-    for arg in args:
-        if arg in ["-e", "--eth0"]:
-            iface = "eth0"
-        elif arg in ["-i", "--interface"]:
-            try:
-                iface = next(args)
-            except StopIteration: #if "-i" was the last argument passed
-                print("Must provide interface value", file=sys.stderr)
-                sys.exit(1)
-        elif arg in ["-v", "--verbose"]:
-            verbose = True
-        elif arg in ["-h", "--help"]:
-            print(HELP)
-            sys.exit(0) # exit code 0 because no errors
-        else:
-            print(HELP)
-            sys.exit(1) # exit code 1 is standard exit error code
-
-    return Config(iface, verbose)
+        for arg in args:
+            if arg in ["-e", "--eth0"]:
+                self.iface = "eth0"
+            elif arg in ["-i", "--interface"]:
+                try:
+                    self.iface = next(args)
+                except StopIteration: #if "-i" was the last argument passed
+                    print("Must provide interface value", file=sys.stderr)
+                    sys.exit(1)
+            elif arg in ["-v", "--verbose"]:
+                self.verbose = True
+            elif arg in ["-h", "--help"]:
+                print(HELP)
+                sys.exit(0) # exit code 0 because no errors
+            else:
+                print(HELP)
+                sys.exit(1) # exit code 1 is standard exit error code
 
 def set_network(mode, conf):
     """Attempt to set network up/down by calling external
@@ -124,7 +115,7 @@ def restart_nm(conf):
 
 def main():
     args = iter(sys.argv) # create iterable for nicer argument parsing
-    conf = init_config(args)
+    conf = Config(args)
     print("Donate BTC to support development: 14bnKzJWjYHYFndBuRbhth6aTbKGPjwmjg")
 
     # as soon as an error is encountered, script will go to except block and exit
