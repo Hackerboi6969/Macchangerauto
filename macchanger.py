@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+
 # Copyright 2018 Hackerboi6969
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -13,53 +15,119 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import subprocess
+import subprocess as sp
+from subprocess import PIPE
 import sys
 
-def handle_args(argv):
-    """produce config based on passed arguments"""
-    config = {"network": "wlan0"} #default config to return
-    for argument in argv:
-        if argument == "-e" or argument == "--eth0": #easy toggle for eth0
-            config["network"] = "eth0"
-        elif argument == "-i" or argument == "--interface":
-            try:
-                config["network"] = next(argv)
-            except StopIteration: #if no interface was specified ("-i" is last arg)
-                print("Must provide an interface!", file=sys.stderr) #write to stderr
-                sys.exit(1)
-    return config
+HELP = """Usage: ./macchanger.py arg [value]
 
-def exit_on_error(returncode, message):
-    """if command has non-zero exit code, print given error message to stderr
-    and then exit with error code 1
-    """
-    if returncode != 0: #if command has failed, print given message to stderr and exit
-        print(message, file=sys.stderr)
-        sys.exit(1)
+ARGS:
+  -e    --eth0          use eth0 as interface
+  -i    --interface     specify interface as [value]
+  -v    --verbose       give verbose error output
+  -h    --help          show this help dialog
+
+INTERFACE VALUES:
+Will either be in form wlanX or wlpXsX depending on OS.
+Default value is wlan0."""
+
+# ANSI Escape Sequences for colours:
+# \033[ starts escape sequence
+# 30-39 are colours
+# 0 = reset to default, 1 = bold, 3 = italic, 4 = underscore, 5 = blink
+# options are semi-colon delimited
+# m signifies end of escape sequence
+RED = "\033[31;1m"
+BOLD = "\033[1m"
+NORMAL = "\033[0m"
+
+class Config:
+    """Configurable options for the running
+    of the script set/got from here"""
+
+    def __init__(self, args):
+        self.iface = "wlan0"
+        self.verbose = False
+        next(args) # go past argument 0 (how script was called)
+
+        for arg in args:
+            if arg in ["-e", "--eth0"]:
+                self.iface = "eth0"
+            elif arg in ["-i", "--interface"]:
+                try:
+                    self.iface = next(args)
+                except StopIteration: #if "-i" was the last argument passed
+                    print("Must provide interface value", file=sys.stderr)
+                    sys.exit(1)
+            elif arg in ["-v", "--verbose"]:
+                self.verbose = True
+            elif arg in ["-h", "--help"]:
+                print(HELP)
+                sys.exit(0) # exit code 0 because no errors
+            else:
+                print(HELP)
+                sys.exit(1) # exit code 1 is standard exit error code
+
+def set_network(mode, conf):
+    """Attempt to set network up/down by calling external
+    command `ip` for specified interface"""
+
+    result = sp.run(f"ip link set {conf.iface} {mode}", shell=True, stderr=PIPE)
+    if result.returncode != 0:
+        if conf.verbose:
+            # stderr/stdout stored as byte strings, convert to UTF-8 and strip end newline char.
+            stderr = result.stderr.decode("utf-8").strip()
+            raise Exception(f"Could not set network {mode}: {stderr}")
+        raise Exception(f"Could not set network {mode}")
+
+def change_mac(conf):
+    """Try to change MAC with external command `macchanger` for specified interface"""
+
+    result = sp.run(f"macchanger -r {conf.iface}", shell=True, stderr=PIPE, stdout=PIPE)
+    if result.returncode != 0:
+        try:
+            # try to set network up after failed attempt to change MAC
+            set_network("up", conf)
+        except Exception:
+            if conf.verbose:
+                stderr = result.stderr.decode("utf-8").strip()
+                raise Exception(f"Could not change MAC, network down: {stderr}")
+            raise Exception("Could not change MAC, network down")
+        if conf.verbose:
+            stderr = result.stderr.decode("utf-8").strip()
+            raise Exception(f"Could not change MAC, network up: {stderr}")
+        raise Exception("Could not change MAC, network up")
+    stdout = result.stdout.decode("utf-8").strip()
+    # convert str -> list, splitting on newline chars. New MAC is given on the 3rd output line,
+    # so access the 3rd element of new list with [2] (lists are 0-indexed).
+    new_mac = stdout.splitlines()[2]
+    return new_mac
+
+def restart_nm(conf):
+    """Restart NetworkManager, otherwise network will not work properly"""
+
+    result = sp.run("systemctl restart NetworkManager", shell=True, stderr=PIPE)
+    if result.returncode != 0:
+        if conf.verbose:
+            stderr = result.stderr.decode("utf-8").strip()
+            raise Exception(f"Could not restart NetworkManager: {stderr}")
+        raise Exception("Could not restart NetworkManager")
 
 def main():
-    #create an iterable so we can use next() then pass to handle_args
-    config = handle_args(iter(sys.argv))
-    network = config["network"]
-    pipe = subprocess.PIPE #used to pipe command output to *_result variables
+    args = iter(sys.argv) # create iterable for nicer argument parsing
+    conf = Config(args)
+    print("Donate BTC to support development: 14bnKzJWjYHYFndBuRbhth6aTbKGPjwmjg")
 
-    down_result = subprocess.run(f"ip link set {network} down", shell=True, stderr=pipe) #send stderr output to down_result.stderr
-    exit_on_error(down_result.returncode, "Could not set network down")
-
-    #only output macchanger stdout if command succeeded - otherwise nothing of value to show
-    mac_result = subprocess.run(f"macchanger -r {network}", shell=True, stderr=pipe, stdout=pipe)
-    exit_on_error(mac_result.returncode, "Could not change MAC")
-    #saved output is a byte string - convert to UTF-8, strip away the trailing newline character, then print it.
-    print(mac_result.stdout.decode("utf-8").strip())
-
-    up_result = subprocess.run(f"ip link set {network} up", shell=True, stderr=pipe)
-    exit_on_error(up_result.returncode, "Could not set network up")
-
-    result = subprocess.run("systemctl restart NetworkManager", shell=True, stderr=pipe)
-    exit_on_error(result.returncode, "Could not restart NetworkManager")
-
+    # as soon as an error is encountered, script will go to except block and exit
+    try:
+        set_network("down", conf)
+        new_mac = change_mac(conf)
+        print(f"{BOLD}{new_mac}{NORMAL}")
+        set_network("up", conf)
+        restart_nm(conf)
+    except Exception as err:
+        print(f"{RED}Error:{NORMAL} {err}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
-    print("If you would like more updates and more things adding please feel free to donate to this Bitcoin address 14bnKzJWjYHYFndBuRbhth6aTbKGPjwmjg")
     main()
